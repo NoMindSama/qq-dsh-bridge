@@ -1,0 +1,29 @@
+# 依赖
+node_modules/
+qq-bridge/node_modules/
+
+# ── 本地配置：含 QQ 号、SnowLuma 令牌、控制台令牌，绝不提交 ──
+config.json
+qq-bridge/config.json
+*.credentials
+.credentials.yaml
+
+# ── 运行状态：聊天记录、未读、记忆库、令牌、日志 ──
+state/
+qq-bridge/state/
+*.log
+
+# 备份与快照
+_backup_*/
+*.zip
+!package-lock.json
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 临时
+*.tmp
+zz*.txt

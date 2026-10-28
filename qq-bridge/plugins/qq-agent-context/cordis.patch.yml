@@ -1,0 +1,4 @@
+- insert:
+    - id: qq-agent-context
+      name: '@local/qq-agent-context'
+      config: {}

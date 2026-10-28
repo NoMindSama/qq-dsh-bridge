@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "QQ Session Context",
+    "description": "Injects each QQ session's identity, agent token, sticker library, and long-term facts into the system prompt, so wake-up prompts carry only what changed this turn."
+  }
+}

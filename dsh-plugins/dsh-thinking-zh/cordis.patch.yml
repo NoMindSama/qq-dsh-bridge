@@ -1,0 +1,5 @@
+# dsh-thinking-zh bundle patch
+# 把插件插入桌面端 profile 的插件清单。
+- insert:
+    - id: dsh-thinking-zh
+      name: dsh-thinking-zh

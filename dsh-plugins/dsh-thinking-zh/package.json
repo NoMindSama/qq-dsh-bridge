@@ -1,0 +1,39 @@
+{
+  "name": "dsh-thinking-zh",
+  "version": "0.4.0",
+  "description": "DSH Desktop 浮游球工具箱：可拖动的角落小球，面板里以开关形式管理功能（当前含「思考链中文」）",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "thinking",
+    "reasoning",
+    "chinese"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "scripts": {
+    "test": "node scripts/smoke.mjs"
+  },
+  "license": "MIT"
+}
