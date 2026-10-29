@@ -1,4 +1,4 @@
-﻿<#
+<#
   QQ 大肥鱼机器人 · 启动与后端管理
   ────────────────────────────────────────────────────────────────────────
   这是"发行层"的管理脚本，放在项目根目录的 tools/ 下，不侵入 qq-bridge 仓库。
@@ -258,7 +258,7 @@ function Show-Status {
       if ($c) { Write-Info ("端口 $port ✓") } else { Write-Warn2 ("端口 $port 未监听") }
     }
   } else {
-    Write-Bad 'SnowLuma 未运行 —— QQ 侧会完全收不到消息，请自行双击 E:\SnowLuma\launcher.bat'
+    Write-Bad 'SnowLuma 未运行 —— QQ 侧会完全收不到消息，请先启动你自己的 SnowLuma（双击它目录下的 launcher.bat）'
   }
 
   Show-Backends

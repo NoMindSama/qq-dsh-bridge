@@ -231,7 +231,7 @@ L4  自我认知    selfNote —— 它对自己的叙述（本项目新增）
 #### 3. 拿到仓库
 
 ```powershell
-cd E:\
+cd <你想放仓库的目录>
 git clone <本仓库地址> qq-dsh-bridge
 cd qq-dsh-bridge\qq-bridge
 npm install

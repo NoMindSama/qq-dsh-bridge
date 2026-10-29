@@ -11,7 +11,7 @@
 //   node scripts/memory-fact.mjs reap   [key]
 //   node scripts/memory-fact.mjs stats
 //
-// key 形如 group:185246858 / private:123456789；tag 见 TAG_WEIGHTS
+// key 形如 group:123456789 / private:123456789；tag 见 TAG_WEIGHTS
 // （identity / agreement / emotion / preference / meme / misc）。
 
 import path from 'node:path';

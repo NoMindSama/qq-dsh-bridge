@@ -37,7 +37,7 @@
 ### 给自己的机器（开发态）
 
 ```powershell
-& "E:\dsh桌面端\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "link:<你的仓库路径>\dsh-plugins\dsh-thinking-zh"
+& "<DSH 安装目录>\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "link:<你的仓库路径>\dsh-plugins\dsh-thinking-zh"
 ```
 
 安装后重启 DSH Desktop。
@@ -70,7 +70,7 @@ dsh-thinking-zh-installer/
 ## 卸载
 
 ```powershell
-& "E:\dsh桌面端\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop remove dsh-thinking-zh
+& "<DSH 安装目录>\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop remove dsh-thinking-zh
 ```
 
 ## 架构

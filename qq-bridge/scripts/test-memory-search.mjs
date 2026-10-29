@@ -51,8 +51,8 @@ check('索引只收对话正文', stats.docs > 100 && stats.docs < 1200, `只有
 {
   const hits = recall.search('说说', { limit: 5 });
   check('默认跨会话检索', new Set(hits.map((h) => h.key)).size >= 1);
-  const one = recall.search('说说', { key: 'group:185246858', limit: 5 });
-  check('按会话过滤生效', one.every((h) => h.key === 'group:185246858'));
+  const one = recall.search('说说', { key: 'group:123456789', limit: 5 });
+  check('按会话过滤生效', one.every((h) => h.key === 'group:123456789'));
 }
 
 {

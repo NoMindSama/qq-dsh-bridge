@@ -17,7 +17,7 @@
 //     id:   "qq:group:123:456" | "dsh:session-xxx:789"   全局唯一，去重键
 //     v:    1
 //     src:  "qq" | "dsh"
-//     key:  "group:185246858" | "private:123456789" | null
+//     key:  "group:123456789" | "private:123456789" | null
 //     sid:  DSH session id | null
 //     seq:  源内序号（QQ 用桥接本地 seq；DSH 用事件 seq）
 //     t:    毫秒时间戳
