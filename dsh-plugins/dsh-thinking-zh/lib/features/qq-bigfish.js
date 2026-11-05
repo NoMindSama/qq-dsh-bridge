@@ -37,6 +37,8 @@ export const ROUTES = {
   toggle: `${routePath}/toggle`,
   settings: `${routePath}/settings`,
   persona: `${routePath}/persona`,
+  facts: `${routePath}/facts`,
+  impressions: `${routePath}/impressions`,
   tokens: `${routePath}/tokens`,
   stickers: `${routePath}/stickers`,
   launchSnowluma: `${routePath}/launch-snowluma`,
@@ -178,12 +180,12 @@ async function discoverBackends() {
     '$out = @()',
     "foreach ($p in (Get-CimInstance Win32_Process -Filter \"Name='DeepSeek Harness.exe'\" -ErrorAction SilentlyContinue)) {",
     "  if ($p.CommandLine -match '--type=') { continue }",
-    '  $c = Get-NetTCPConnection -State Listen -OwningProcess $p.ProcessId -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq \'127.0.0.1\' } | Select-Object -First 1',
+    '  $c = Get-NetTCPConnection -State Listen -OwningProcess $p.ProcessId -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq \'127.0.0.1\' } | Sort-Object LocalPort | Select-Object -First 1',
     "  if ($c) { $out += [pscustomobject]@{ kind = 'desktop'; pid = $p.ProcessId; port = $c.LocalPort } }",
     '}',
     "foreach ($p in (Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ErrorAction SilentlyContinue)) {",
     "  if ($p.CommandLine -notmatch '@deepseek-ai[\\\\/]dsh[\\\\/]lib[\\\\/]bin\\.js') { continue }",
-    '  $c = Get-NetTCPConnection -State Listen -OwningProcess $p.ProcessId -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq \'127.0.0.1\' } | Select-Object -First 1',
+    '  $c = Get-NetTCPConnection -State Listen -OwningProcess $p.ProcessId -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq \'127.0.0.1\' } | Sort-Object LocalPort | Select-Object -First 1',
     "  if ($c) { $out += [pscustomobject]@{ kind = 'cli'; pid = $p.ProcessId; port = $c.LocalPort } }",
     '}',
     '$out | ConvertTo-Json -Compress',
@@ -309,6 +311,82 @@ async function handleSettings(req, res) {
 }
 
 /** GET/POST 人格（角色卡）。GET 带 ?name= 时返回该角色全文。 */
+async function handleImpressions(req, res) {
+  const env = bridgeEnv()
+  if (!env.ok) return json(res, 200, { ok: false, error: env.error })
+
+  if ((req.method || 'GET') === 'GET') {
+    const r = await bridgeApi(env, '/api/socialV2/impressions')
+    if (!r.ok) return json(res, 200, { ok: false, error: r.error || `HTTP ${r.status}` })
+    const data = r.data || {}
+    return json(res, 200, {
+      ok: true,
+      total: data.total || 0,
+      impressions: Array.isArray(data.impressions) ? data.impressions : [],
+    })
+  }
+
+  let body
+  try { body = await readJsonBody(req) } catch (error) { return json(res, 400, { ok: false, error: String(error.message || error) }) }
+  const action = String(body.action || '')
+
+  if (action === 'remove') {
+    const r = await bridgeApi(env, '/api/socialV2/impression-remove', {
+      method: 'POST',
+      body: { key: body.key, name: body.name },
+    })
+    return json(res, 200, r.ok ? { ok: true, ...(r.data || {}) } : { ok: false, error: r.error || `HTTP ${r.status}` })
+  }
+
+  if (action === 'update') {
+    const payload = { key: body.key, name: body.name }
+    if (body.traitIndex !== undefined) payload.traitIndex = body.traitIndex
+    if (body.text !== undefined) payload.text = body.text
+    if (body.newName !== undefined) payload.newName = body.newName
+    if (Array.isArray(body.traits)) payload.traits = body.traits
+    const r = await bridgeApi(env, '/api/socialV2/impression-update', { method: 'POST', body: payload })
+    return json(res, 200, r.ok ? { ok: true, ...(r.data || {}) } : { ok: false, error: r.error || `HTTP ${r.status}` })
+  }
+
+  return json(res, 400, { ok: false, error: '未知 action' })
+}
+
+async function handleFacts(req, res) {
+  const env = bridgeEnv()
+  if (!env.ok) return json(res, 200, { ok: false, error: env.error })
+
+  const url = new URL(req.url || '/', 'http://127.0.0.1')
+
+  if ((req.method || 'GET') === 'GET') {
+    const r = await bridgeApi(env, '/api/socialV2/facts')
+    if (!r.ok) return json(res, 200, { ok: false, error: r.error || `HTTP ${r.status}` })
+    const data = r.data || {}
+    return json(res, 200, { ok: true, total: data.total || 0, facts: Array.isArray(data.facts) ? data.facts : [] })
+  }
+
+  let body
+  try { body = await readJsonBody(req) } catch (error) { return json(res, 400, { ok: false, error: String(error.message || error) }) }
+  const action = String(body.action || '')
+
+  if (action === 'remove') {
+    const r = await bridgeApi(env, '/api/socialV2/fact-remove', {
+      method: 'POST',
+      body: { key: body.key, id: body.id },
+    })
+    return json(res, 200, r.ok ? { ok: true, ...(r.data || {}) } : { ok: false, error: r.error || `HTTP ${r.status}` })
+  }
+
+  if (action === 'update') {
+    const r = await bridgeApi(env, '/api/socialV2/fact-update', {
+      method: 'POST',
+      body: { key: body.key, id: body.id, text: body.text, tag: body.tag },
+    })
+    return json(res, 200, r.ok ? { ok: true, ...(r.data || {}) } : { ok: false, error: r.error || `HTTP ${r.status}` })
+  }
+
+  return json(res, 400, { ok: false, error: '未知 action' })
+}
+
 async function handlePersona(req, res) {
   const env = bridgeEnv()
   if (!env.ok) return json(res, 200, { ok: false, error: env.error })
@@ -716,6 +794,8 @@ export function mount(ctx) {
     [ROUTES.toggle, handleToggle],
     [ROUTES.settings, handleSettings],
     [ROUTES.persona, handlePersona],
+    [ROUTES.facts, handleFacts],
+    [ROUTES.impressions, handleImpressions],
     [ROUTES.tokens, handleTokens],
     [ROUTES.stickers, handleStickers],
     [ROUTES.launchSnowluma, handleLaunchSnowluma],

@@ -139,7 +139,6 @@
       "setStickerRemark": false,
       "stickerNote": true,
       "collectSticker": true,
-      "getSelfImage": true,
       "sendVoice": false,
       "sendFile": true
     },
