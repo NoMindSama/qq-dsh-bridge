@@ -33,11 +33,6 @@ window.__ModuleLoader__.load({
     '<rect x="11" y="11" width="6" height="6" rx="1.8" fill="currentColor"/>' +
     '</svg>'
 
-  var ICON_ZH =
-    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
-    '<rect x="3.4" y="3.4" width="9.2" height="9.2" rx="1.6" stroke="currentColor" stroke-width="1.2"/>' +
-    '<path d="M8 1.7v12.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
-    '</svg>'
 
   var ICON_FISH =
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
@@ -55,19 +50,6 @@ window.__ModuleLoader__.load({
   /* ---------------- feature registry ---------------- */
 
   var FEATURES = [
-    {
-      id: 'thinking-zh',
-      title: '思考链中文',
-      hint: '模型从源头用中文推理，术语保留英文',
-      icon: ICON_ZH,
-      api: '/dsh-thinking-zh/state',
-      state: { enabled: true, mode: 'zh' },
-      modes: [
-        { id: 'zh', label: '中文优先' },
-        { id: 'mixed', label: '中英混用' },
-        { id: 'auto', label: '跟随用户' },
-      ],
-    },
     {
       id: 'qq-bigfish',
       title: 'QQ 大肥鱼',
@@ -219,7 +201,8 @@ window.__ModuleLoader__.load({
       'background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:dsh-fb-fade .14s ease}',
       '.dsh-fb-dialog{width:min(940px,94vw);height:min(700px,88vh);display:flex;flex-direction:column;overflow:hidden;',
       'border-radius:16px;background:var(--dsw-alias-bg-layer-1,#17171a);',
-      'border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.26));box-shadow:0 28px 80px rgba(0,0,0,.5);',
+      'border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.26));',
+      'box-shadow:0 28px 80px rgba(0,0,0,.5);',
       'color:var(--dsw-alias-label-primary,#ececec);font-family:var(--dsw-font-family,inherit);font-size:13px;',
       'animation:dsh-fb-pop .18s ease}',
       '.dsh-fb-dlg-head{display:flex;align-items:center;justify-content:space-between;padding:13px 14px 11px 16px;',
@@ -283,6 +266,107 @@ window.__ModuleLoader__.load({
       'color:var(--dsw-alias-label-secondary,#a5a5ad);margin-right:5px;margin-top:6px;transition:color .13s ease}',
       '.dsh-fb-mini:hover{color:var(--dsw-alias-label-primary,#ececec)}',
       '.dsh-fb-mini.danger:hover{color:#ff8a8a}',
+
+      // ── 长期记忆（L2）卡片 ─────────────────────────────────────────
+      // 单列流式布局，不用 .dsh-fb-cards 的网格：事实是长短不一的句子，
+      // 网格会把它切成等宽小方块，读起来像标签墙。
+      '.dsh-fb-facts{display:flex;flex-direction:column;gap:8px}',
+      '.dsh-fb-fact{position:relative;display:flex;gap:11px;align-items:flex-start;',
+      'padding:12px 13px 12px 11px;border-radius:10px;',
+      'background:var(--dsw-alias-bg-layer-2,#202024);',
+      'border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.16));',
+      'transition:border-color .14s ease,background .14s ease}',
+      '.dsh-fb-fact:hover{border-color:var(--dsw-alias-border-l2,rgba(127,127,127,.3))}',
+      // 左侧色条：一眼分辨类别，不占正文宽度
+      '.dsh-fb-fact-bar{flex:none;width:3px;align-self:stretch;border-radius:2px;opacity:.85}',
+      '.dsh-fb-fact-main{flex:1;min-width:0}',
+      '.dsh-fb-fact-text{font-size:13px;line-height:1.55;color:var(--dsw-alias-label-primary,#ececec);',
+      'word-break:break-word;margin-bottom:7px}',
+      '.dsh-fb-fact-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;',
+      'color:var(--dsw-alias-label-tertiary,#8d8d94)}',
+      // 权重徽标：数值本身是这张卡最重要的信息
+      '.dsh-fb-w{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:5px;',
+      'font-variant-numeric:tabular-nums;font-weight:600;font-size:11px;letter-spacing:.2px}',
+      '.dsh-fb-w.hi{background:rgba(63,191,111,.16);color:#4fd486}',
+      '.dsh-fb-w.mid{background:rgba(224,163,58,.16);color:#e0a33a}',
+      '.dsh-fb-w.lo{background:rgba(127,127,127,.16);color:#9a9aa2}',
+      '.dsh-fb-tag{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;',
+      'background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.16));',
+      'color:var(--dsw-alias-label-secondary,#a5a5ad)}',
+      '.dsh-fb-fact-del{flex:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;',
+      'padding:4px 9px;border-radius:6px;background:transparent;',
+      'color:var(--dsw-alias-label-tertiary,#8d8d94);opacity:0;',
+      'transition:opacity .14s ease,color .14s ease,background .14s ease}',
+      // 删除按钮平时隐起来，悬停才出现 —— 避免一屏全是红按钮
+      '.dsh-fb-fact:hover .dsh-fb-fact-del{opacity:1}',
+      '.dsh-fb-fact-del:hover{background:rgba(206,62,62,.16);color:#ff8a8a}',
+      '@media (hover:none){.dsh-fb-fact-del{opacity:1}}',
+      // 已武装（第一次点过，等待确认）：常显 + 红底，跟普通态明确区分
+      '.dsh-fb-fact-del.armed{opacity:1;background:rgba(206,62,62,.9);color:#fff;font-weight:600}',
+      '.dsh-fb-fact-del.armed:hover{background:rgba(206,62,62,1);color:#fff}',
+      // 空状态
+      '.dsh-fb-facts-empty{text-align:center;padding:34px 16px;border-radius:10px;',
+      'border:1px dashed var(--dsw-alias-border-l2,rgba(127,127,127,.28));',
+      'background:var(--dsw-alias-bg-layer-1,#17171a)}',
+      '.dsh-fb-facts-empty .t{font-size:13px;color:var(--dsw-alias-label-secondary,#a5a5ad);margin-bottom:6px}',
+      '.dsh-fb-facts-empty .s{font-size:11.5px;color:var(--dsw-alias-label-tertiary,#7f7f87);line-height:1.6}',
+
+      // ── 群友印象卡片 ───────────────────────────────────────────────
+      // 两列网格：名字短、条目短，单列会浪费横向空间。
+      '.dsh-fb-imp{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:9px}',
+      '.dsh-fb-impcard{position:relative;padding:11px 12px;border-radius:10px;',
+      'background:var(--dsw-alias-bg-layer-2,#202024);',
+      'border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.16));',
+      'transition:border-color .14s ease}',
+      '.dsh-fb-impcard:hover{border-color:var(--dsw-alias-border-l2,rgba(127,127,127,.3))}',
+      '.dsh-fb-imphead{margin-bottom:7px;padding-right:96px}',
+      // 名字用品牌色，和「长期记忆」的正文白区分开 —— 一眼看出这是人不是事
+      '.dsh-fb-impname{font-size:13px;font-weight:600;color:var(--dsw-alias-brand-primary,#6ea8fe);',
+      'line-height:1.35;word-break:break-all}',
+      '.dsh-fb-impmeta{font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8d8d94);margin-top:3px}',
+      '.dsh-fb-imptraits{display:flex;flex-direction:column;gap:5px}',
+      // 每条印象左侧一条竖线，多条时读起来像列表而不是一段话
+      '.dsh-fb-imptrait{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary,#c9c9d0);',
+      'padding-left:8px;border-left:2px solid rgba(127,127,127,.22);word-break:break-word}',
+
+      // ── 卡片操作区（编辑 / 删除） ────────────────────────────────────
+      // 绝对定位到右上角：不挤压正文，且两条卡片的按钮永远在同一水平线。
+      '.dsh-fb-fact-ops{position:absolute;top:8px;right:8px;display:flex;gap:4px;align-items:center}',
+      '.dsh-fb-fact-edit,.dsh-fb-fact-save,.dsh-fb-fact-cancel{border:none;cursor:pointer;',
+      'font-family:inherit;font-size:11px;padding:4px 9px;border-radius:6px;background:transparent;',
+      'color:var(--dsw-alias-label-tertiary,#8d8d94);opacity:0;',
+      'transition:opacity .14s ease,color .14s ease,background .14s ease}',
+      '.dsh-fb-fact:hover .dsh-fb-fact-edit,.dsh-fb-impcard:hover .dsh-fb-fact-edit,',
+      '.dsh-fb-fact:hover .dsh-fb-fact-del,.dsh-fb-impcard:hover .dsh-fb-fact-del{opacity:1}',
+      '.dsh-fb-fact-edit:hover{background:rgba(110,168,254,.14);color:#8fbdff}',
+      // 编辑态下按钮常显
+      '.dsh-fb-fact.editing .dsh-fb-fact-save,.dsh-fb-fact.editing .dsh-fb-fact-cancel,',
+      '.dsh-fb-impcard.editing .dsh-fb-fact-save,.dsh-fb-impcard.editing .dsh-fb-fact-cancel{opacity:1}',
+      '.dsh-fb-fact-save{background:rgba(63,191,111,.9);color:#fff;font-weight:600}',
+      '.dsh-fb-fact-save:hover{background:rgba(63,191,111,1);color:#fff}',
+      '.dsh-fb-fact-cancel:hover{background:rgba(127,127,127,.16);color:var(--dsw-alias-label-primary,#ececec)}',
+      '@media (hover:none){.dsh-fb-fact-edit,.dsh-fb-fact-del{opacity:1}}',
+
+      // ── 编辑态输入控件 ──────────────────────────────────────────────
+      '.dsh-fb-fact.editing,.dsh-fb-impcard.editing{border-color:var(--dsw-alias-brand-primary,rgba(110,168,254,.55))}',
+      '.dsh-fb-edit-text{width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;',
+      'font-size:12.5px;line-height:1.5;padding:7px 9px;border-radius:7px;',
+      'background:var(--dsw-alias-bg-layer-1,#17171a);',
+      'border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.3));',
+      'color:var(--dsw-alias-label-primary,#ececec);outline:none}',
+      '.dsh-fb-edit-text:focus{border-color:var(--dsw-alias-brand-primary,rgba(110,168,254,.6))}',
+      '.dsh-fb-edit-text.small{font-size:12px;margin-bottom:2px}',
+      '.dsh-fb-edit-name{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;font-weight:600;',
+      'padding:5px 8px;border-radius:6px;background:var(--dsw-alias-bg-layer-1,#17171a);',
+      'border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.3));',
+      'color:var(--dsw-alias-brand-primary,#6ea8fe);outline:none}',
+      '.dsh-fb-edit-name:focus{border-color:var(--dsw-alias-brand-primary,rgba(110,168,254,.6))}',
+      '.dsh-fb-edit-row{display:flex;align-items:center;gap:8px;margin-top:8px}',
+      '.dsh-fb-edit-label{font-size:11px;color:var(--dsw-alias-label-tertiary,#8d8d94)}',
+      '.dsh-fb-edit-tag{font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;',
+      'background:var(--dsw-alias-bg-layer-1,#17171a);',
+      'border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.3));',
+      'color:var(--dsw-alias-label-primary,#ececec);outline:none;cursor:pointer}',
     ].join('')
     document.head.appendChild(style)
   }
@@ -546,6 +630,8 @@ window.__ModuleLoader__.load({
 
   var TABS = [
     { id: 'status', label: '状态' },
+    { id: 'facts', label: '长期记忆' },
+    { id: 'impressions', label: '群友印象' },
     { id: 'rhythm', label: '回复节奏' },
     { id: 'persona', label: '人格' },
     { id: 'tokens', label: 'Token 花费' },
@@ -719,6 +805,8 @@ window.__ModuleLoader__.load({
     var f = mState.feature
     var url = f.api
     if (tabId === 'rhythm') url = f.api + '/settings'
+    else if (tabId === 'facts') url = f.api + '/facts'
+    else if (tabId === 'impressions') url = f.api + '/impressions'
     else if (tabId === 'persona') url = f.api + '/persona'
     else if (tabId === 'tokens') url = f.api + '/tokens'
     else if (tabId === 'stickers') url = f.api + '/stickers'
@@ -748,6 +836,8 @@ window.__ModuleLoader__.load({
       return
     }
     if (mState.tab === 'status') return renderStatusTab(d)
+    if (mState.tab === 'facts') return renderFactsTab(d)
+    if (mState.tab === 'impressions') return renderImpressionsTab(d)
     if (mState.tab === 'rhythm') return renderRhythmTab(d)
     if (mState.tab === 'persona') return renderPersonaTab(d)
     if (mState.tab === 'tokens') return renderTokensTab(d)
@@ -850,6 +940,361 @@ window.__ModuleLoader__.load({
     }
     return cur
   }
+
+  // 长期记忆（L2）：后端按权重降序返回，这里原样从上往下排。
+  // 删除走 archiveFact（写一条 archived:true 的修订，不物理删），
+  // 所以删掉的记录仍可在 jsonl 里追溯，只是不再注入。
+  var FACT_TAG = {
+    identity: { label: '身份', color: '#6ea8fe' },
+    agreement: { label: '约定', color: '#9b8cf2' },
+    emotion: { label: '情绪', color: '#e0709b' },
+    preference: { label: '偏好', color: '#4fd486' },
+    meme: { label: '梗', color: '#e0a33a' },
+    misc: { label: '其他', color: '#8d8d94' },
+  }
+
+  // 编辑态：同一时刻只允许一条处于编辑中（editing 只存一个标识）。
+  // kind: 'fact' | 'impression'；id: fact 的 id 或 impression 的 "key\0name"
+  var editing = null;
+  var editDraft = { text: '', tag: '', name: '', traits: [] };
+
+  function beginEdit(kind, id, draft) {
+    editing = { kind: kind, id: id };
+    editDraft = draft;
+    renderTab();
+  }
+
+  function cancelEdit() {
+    editing = null;
+    editDraft = { text: '', tag: '', name: '', traits: [] };
+    renderTab();
+  }
+
+  // 两段式删除按钮（删除 → 确认删除），长期记忆和群友印象共用
+  function deleteButton(title, onConfirm) {
+    var btn = h('button', 'dsh-fb-fact-del', '删除');
+    btn.type = 'button';
+    btn.title = title || '删除';
+    var armed = false;
+    var timer = null;
+    var disarm = function () {
+      armed = false;
+      if (timer) { clearTimeout(timer); timer = null }
+      btn.textContent = '删除';
+      btn.className = 'dsh-fb-fact-del';
+    };
+    btn.addEventListener('click', function () {
+      if (!armed) {
+        armed = true;
+        btn.textContent = '确认删除';
+        btn.className = 'dsh-fb-fact-del armed';
+        timer = setTimeout(disarm, 5000);
+        return;
+      }
+      disarm();
+      onConfirm();
+    });
+    btn.addEventListener('blur', function () { if (armed) disarm() });
+    return btn;
+  }
+
+  function editButton(onClick) {
+    var b = h('button', 'dsh-fb-fact-edit', '编辑');
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function saveButton(onClick) {
+    var b = h('button', 'dsh-fb-fact-save', '保存');
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function cancelButton() {
+    var b = h('button', 'dsh-fb-fact-cancel', '取消');
+    b.type = 'button';
+    b.addEventListener('click', cancelEdit);
+    return b;
+  }
+
+  // 权重分档：上色只为了一眼看出谁快掉出去了，不做精确刻度
+  function factWeightClass(w) {
+    if (w >= 2.8) return 'hi'
+    if (w >= 1.5) return 'mid'
+    return 'lo'
+  }
+
+  // 群友印象：每人一张卡，名字当标题、traits 逐条列出。
+  // 和「长期记忆」的区别：那是关于事/关系的结论，这是关于「谁是什么样的人」。
+  function renderImpressionsTab(d) {
+    var list = Array.isArray(d.impressions) ? d.impressions : []
+
+    if (!list.length) {
+      setBody([
+        section('群友印象', [
+          (function () {
+            var box = h('div', 'dsh-fb-facts-empty')
+            box.appendChild(h('div', 't', '还没有群友印象'))
+            box.appendChild(h('div', 's', '压缩前整理时会写入；也可以让她在聊天里用 qq_memory_append 主动记。'))
+            return box
+          })(),
+        ]),
+        actionsRow([{ label: '刷新', ghost: true, onClick: function () { loadTab('impressions') } }]),
+      ])
+      return
+    }
+
+    var wrap = h('div', 'dsh-fb-imp')
+    for (var i = 0; i < list.length; i++) {
+      (function (im) {
+        var myId = im.key + '\u0000' + im.name
+        var isEditing = editing && editing.kind === 'impression' && editing.id === myId
+        var card = h('div', 'dsh-fb-impcard' + (isEditing ? ' editing' : ''))
+
+        var head = h('div', 'dsh-fb-imphead')
+        if (isEditing) {
+          var nameInput = h('input', 'dsh-fb-edit-name')
+          nameInput.type = 'text'
+          nameInput.value = editDraft.name
+          nameInput.addEventListener('input', function () { editDraft.name = nameInput.value })
+          head.appendChild(nameInput)
+        } else {
+          head.appendChild(h('div', 'dsh-fb-impname', im.name || '（无名）'))
+          var metaBits = []
+          if (im.interactionCount) metaBits.push('互动 ' + im.interactionCount + ' 次')
+          if (im.key) metaBits.push(im.key)
+          if (metaBits.length) head.appendChild(h('div', 'dsh-fb-impmeta', metaBits.join(' · ')))
+        }
+        card.appendChild(head)
+
+        var traits = Array.isArray(im.traits) ? im.traits : []
+        var tl = h('div', 'dsh-fb-imptraits')
+        for (var k = 0; k < traits.length; k++) {
+          (function (ti) {
+            var line = h('div', 'dsh-fb-imptrait')
+            if (isEditing) {
+              var ta = h('textarea', 'dsh-fb-edit-text small')
+              ta.value = editDraft.traits[ti] != null ? editDraft.traits[ti] : traits[ti]
+              ta.rows = 2
+              ta.addEventListener('input', function () { editDraft.traits[ti] = ta.value })
+              line.appendChild(ta)
+            } else {
+              line.appendChild(document.createTextNode(traits[ti]))
+            }
+            tl.appendChild(line)
+          })(k)
+        }
+        card.appendChild(tl)
+
+        var ops = h('div', 'dsh-fb-fact-ops')
+        if (isEditing) {
+          ops.appendChild(cancelButton())
+          ops.appendChild(saveButton(function () {
+            updateImpression(im.key, im.name, editDraft.name, editDraft.traits)
+          }))
+        } else {
+          ops.appendChild(editButton(function () {
+            beginEdit('impression', myId, {
+              text: '', tag: '', name: im.name, traits: (im.traits || []).slice(),
+            })
+          }))
+          ops.appendChild(deleteButton('删掉对这个人的印象', function () {
+            removeImpression(im.key, im.name)
+          }))
+        }
+        card.appendChild(ops)
+
+        wrap.appendChild(card)
+      })(list[i])
+    }
+
+    var nodes = [
+      section('群友印象（' + list.length + ' 人）', [wrap]),
+      actionsRow([{ label: '刷新', ghost: true, onClick: function () { loadTab('impressions') } }]),
+      h('div', 'dsh-fb-warn', '每条印象最多 50 字（桥接侧硬上限）。改名会把这条印象迁到新名字下。'),
+    ]
+    if (mState.note) nodes.push(h('div', 'dsh-fb-warn', mState.note))
+    setBody(nodes)
+  }
+
+  function updateImpression(key, name, newName, traits) {
+    if (!modal) return
+    var clean = (traits || []).map(function (x) { return String(x || '').trim() }).filter(Boolean)
+    if (!clean.length) { mState.note = '至少保留一条印象'; renderTab(); return }
+    mState.note = ''
+    var payload = { action: 'update', key: key, name: name, traits: clean }
+    if (newName && newName !== name) payload.newName = String(newName).trim()
+    postJson(mState.feature.api + '/impressions', payload)
+      .then(function (r) {
+        if (!modal) return
+        if (r && r.ok) { editing = null; mState.note = '已保存。' }
+        else mState.note = '保存失败：' + ((r && r.error) || '未知错误')
+        loadTab('impressions')
+      })
+      .catch(function (e) {
+        if (!modal) return
+        mState.note = '保存失败：' + (e && e.message ? e.message : e)
+        loadTab('impressions')
+      })
+  }
+
+  function removeImpression(key, name) {
+    if (!modal) return
+    mState.note = ''
+    postJson(mState.feature.api + '/impressions', { action: 'remove', key: key, name: name })
+      .then(function (r) {
+        if (!modal) return
+        mState.note = (r && r.ok) ? ('已删除「' + name + '」的印象。') : ('删除失败：' + ((r && r.error) || '未知错误'))
+        loadTab('impressions')
+      })
+      .catch(function (e) {
+        if (!modal) return
+        mState.note = '删除失败：' + (e && e.message ? e.message : e)
+        loadTab('impressions')
+      })
+  }
+
+  function renderFactsTab(d) {
+    var list = Array.isArray(d.facts) ? d.facts : []
+    var live = []
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].archived) live.push(list[i])
+    }
+
+    if (!live.length) {
+      setBody([
+        section('长期记忆', [
+          (function () {
+            var box = h('div', 'dsh-fb-facts-empty')
+            box.appendChild(h('div', 't', '还没有长期事实'))
+            box.appendChild(h('div', 's', '压缩前会让她整理一次；聊天里提到已有事实也会自动加权。'))
+            return box
+          })(),
+        ]),
+        actionsRow([{ label: '刷新', ghost: true, onClick: function () { loadTab('facts') } }]),
+      ])
+      return
+    }
+
+    var wrap = h('div', 'dsh-fb-facts')
+    for (var j = 0; j < live.length; j++) {
+      (function (fact) {
+        var meta = FACT_TAG[fact.tag] || FACT_TAG.misc
+        var isEditing = editing && editing.kind === 'fact' && editing.id === fact.id
+        var row = h('div', 'dsh-fb-fact' + (isEditing ? ' editing' : ''))
+
+        var bar = h('div', 'dsh-fb-fact-bar')
+        bar.style.background = meta.color
+        row.appendChild(bar)
+
+        var main = h('div', 'dsh-fb-fact-main')
+
+        if (isEditing) {
+          var ta = h('textarea', 'dsh-fb-edit-text')
+          ta.value = editDraft.text
+          ta.rows = 3
+          ta.addEventListener('input', function () { editDraft.text = ta.value })
+          main.appendChild(ta)
+
+          var sel = h('select', 'dsh-fb-edit-tag')
+          for (var tk in FACT_TAG) {
+            if (!Object.prototype.hasOwnProperty.call(FACT_TAG, tk)) continue
+            var opt = document.createElement('option')
+            opt.value = tk
+            opt.textContent = FACT_TAG[tk].label
+            if (tk === editDraft.tag) opt.selected = true
+            sel.appendChild(opt)
+          }
+          sel.addEventListener('change', function () { editDraft.tag = sel.value })
+          var tagRow = h('div', 'dsh-fb-edit-row')
+          tagRow.appendChild(h('span', 'dsh-fb-edit-label', '类别'))
+          tagRow.appendChild(sel)
+          main.appendChild(tagRow)
+        } else {
+          main.appendChild(h('div', 'dsh-fb-fact-text', fact.text))
+
+          var metaRow = h('div', 'dsh-fb-fact-meta')
+          metaRow.appendChild(h('span', 'dsh-fb-tag', meta.label))
+          var w = fact.weight != null ? Number(fact.weight) : 0
+          metaRow.appendChild(h('span', 'dsh-fb-w ' + factWeightClass(w), w.toFixed(2)))
+          metaRow.appendChild(h('span', null, '提到 ' + (fact.hits || 0) + ' 次'))
+          if (fact.key) {
+            metaRow.appendChild(h('span', null, '·'))
+            metaRow.appendChild(h('span', null, fact.key))
+          }
+          main.appendChild(metaRow)
+        }
+
+        row.appendChild(main)
+
+        var ops = h('div', 'dsh-fb-fact-ops')
+        if (isEditing) {
+          ops.appendChild(cancelButton())
+          ops.appendChild(saveButton(function () {
+            updateFact(fact.key, fact.id, editDraft.text, editDraft.tag)
+          }))
+        } else {
+          ops.appendChild(editButton(function () {
+            beginEdit('fact', fact.id, { text: fact.text, tag: fact.tag || 'misc', name: '', traits: [] })
+          }))
+          ops.appendChild(deleteButton('归档这条长期事实', function () {
+            removeFact(fact.key, fact.id)
+          }))
+        }
+        row.appendChild(ops)
+
+        wrap.appendChild(row)
+      })(live[j])
+    }
+
+    var nodes = [
+      section('长期记忆（' + live.length + ' 条，按权重从高到低）', [wrap]),
+      actionsRow([{ label: '刷新', ghost: true, onClick: function () { loadTab('facts') } }]),
+      h('div', 'dsh-fb-warn',
+        '权重 = 类别基础分（身份/约定/情绪 3.0，偏好 2.5，梗 1.6，其他 1.3）'
+        + ' + 命中加成（每次 +0.5，最多 +1.5）− 衰减（每 3 天 −0.1）。低于 1.0 停止注入。'),
+    ]
+    if (mState.note) nodes.push(h('div', 'dsh-fb-warn', mState.note))
+    setBody(nodes)
+  }
+
+  function updateFact(key, id, text, tag) {
+    if (!modal) return
+    var t = String(text || '').trim()
+    if (!t) { mState.note = '正文不能为空'; renderTab(); return }
+    mState.note = ''
+    postJson(mState.feature.api + '/facts', { action: 'update', key: key, id: id, text: t, tag: tag })
+      .then(function (r) {
+        if (!modal) return
+        if (r && r.ok) { editing = null; mState.note = '已保存。' }
+        else mState.note = '保存失败：' + ((r && r.error) || '未知错误')
+        loadTab('facts')
+      })
+      .catch(function (e) {
+        if (!modal) return
+        mState.note = '保存失败：' + (e && e.message ? e.message : e)
+        loadTab('facts')
+      })
+  }
+
+  function removeFact(key, id) {
+    if (!modal) return
+    mState.note = ''
+    postJson(mState.feature.api + '/facts', { action: 'remove', key: key, id: id })
+      .then(function (r) {
+        if (!modal) return
+        mState.note = (r && r.ok) ? '已删除。' : ('删除失败：' + ((r && r.error) || '未知错误'))
+        loadTab('facts')
+      })
+      .catch(function (e) {
+        if (!modal) return
+        mState.note = '删除失败：' + (e && e.message ? e.message : e)
+        loadTab('facts')
+      })
+  }
+
 
   function renderRhythmTab(d) {
     var r = d.rhythm || {}
@@ -1297,7 +1742,7 @@ window.__ModuleLoader__.load({
         row.appendChild(h('span', null, bk.url + (bk.current ? ' ← 当前' : '')))
         rows.push(row)
         if (!bk.current) {
-          rows.push(actionsRow([{ label: '切换到' + bk.label, ghost: true, onClick: function () {
+          rows.push(actionsRow([{ label: '对齐DSH端口', ghost: true, onClick: function () {
             postJson(mState.feature.api + '/backend', { url: bk.url }).then(function (res) {
               toast(res && res.ok ? (res.restartNote || '已切换') : ((res && res.error) || '切换失败'))
               loadTab('backend')

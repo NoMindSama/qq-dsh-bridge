@@ -107,7 +107,7 @@ test('social autonomy and visual, forwarding, sticker and web capabilities remai
     '【别当群管家/主持人】', '默认 1 条，最多 2 条', '不要在一条里用空格断句',
     '不会自动发送到 QQ', 'qq_get_message_images', 'qq_get_forward_msg', 'nestedForwardIds',
     'qq_send_poke', 'qq_list_stickers', 'qq_get_sticker_image', 'qq_send_sticker',
-    'qq_collect_sticker', 'qq_sticker_note', 'qq_get_self_image',
+    'qq_collect_sticker', 'qq_sticker_note',
     'qq_set_sticker_remark', '只有管理端明确开启后才能用',
     'qq_list_voices', 'qq_send_voice', 'verified=true 才代表这条语音确实落地',
     '语音**默认是关闭的**', '不要假装发了语音',

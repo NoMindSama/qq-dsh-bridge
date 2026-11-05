@@ -381,9 +381,9 @@ const TOOL_CONFIG_FLAGS = {
   qq_get_sticker_image: 'getStickerImage',
   qq_send_sticker: 'sendSticker',
   qq_collect_sticker: 'collectSticker',
-  qq_get_self_image: 'getSelfImage',
   qq_sticker_note: 'stickerNote',
   qq_set_sticker_remark: 'setStickerRemark',
+  qq_fact_add: 'fact',
 };
 const disabledTools = [];
 
@@ -996,7 +996,7 @@ server.tool(
 
 server.tool(
   'qq_memory_append',
-  '记录一条轻量记忆：activeTopic=进行中的话题；pendingThought=你想说但还没说的话；memberImpression=对某位群友的印象；selfNote=你对自己的认识（我跟这个人是什么关系、我自己最近有什么变化，只有你能写）。前三种会随唤醒自动出现；selfNote 不会，要用 qq_memory_query 去翻。',
+  '记录一条轻量记忆：activeTopic=进行中的话题；pendingThought=你想说但还没说的话；memberImpression=对某位群友的印象；selfNote=你对自己的认识（我跟这个人是什么关系、我自己最近有什么变化，只有你能写）。这四类都不会自动出现在唤醒提示里——想回顾时用 qq_memory_query 查（会一次性返回全部四类）；activeTopic 24 小时没人提会自动过期，pendingThought 默认 2 小时过期。想让某件事每轮都被记住，用 qq_fact_add 写长期事实。',
   {
     key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
     token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
@@ -1020,6 +1020,36 @@ server.tool(
       return { content: [{ type: 'text', text: serializeModelData(data) }] };
     } catch (error) {
       return { content: [{ type: 'text', text: `记忆写入失败：${error?.message ?? error}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'qq_fact_add',
+  '记录一条【长期事实】：跨会话、几个月后看依然成立的事。和 qq_memory_append 的区别：那是"此刻正在发生什么"（会过期），这里是"这个人/这段关系稳定是什么样"（长期注入，每轮都带，按权重排序）。只有明确、具体、以后还用得上的才写；流水账、一次性的事、你自己的情绪都不要写进来。',
+  {
+    key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
+    token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
+    text: z.string().describe('一句话事实，≤200 字。写结论不写流水账，例如「他喜欢猫」「不喜欢被叫萝莉」'),
+    tag: z.enum(['identity', 'agreement', 'emotion', 'preference', 'meme', 'misc'])
+      .describe('决定权重与衰减速度，按语义选最贴近的：'
+        + 'identity=身份与关系（我是谁、你是谁、什么关系）；'
+        + 'agreement=约定（答应过的事、说好的规则）；'
+        + 'emotion=强烈情绪（明确的喜恶、闹过的别扭）；'
+        + 'preference=偏好（喜欢什么、讨厌什么）；'
+        + 'meme=梗（群里的玩笑、口头禅）；'
+        + 'misc=其他稳定事实'),
+  },
+  async ({ key, token, text, tag }) => {
+    try {
+      const data = await agentApi('/api/socialV2/fact-add', {
+        method: 'POST',
+        body: JSON.stringify({ key, text, tag }),
+        headers: { 'x-agent-token': token },
+      });
+      return { content: [{ type: 'text', text: serializeModelData(data) }] };
+    } catch (error) {
+      return { content: [{ type: 'text', text: `长期事实写入失败：${error?.message ?? error}` }], isError: true };
     }
   }
 );
@@ -1373,33 +1403,6 @@ if (cfg.socialV2?.files?.enabled !== false && cfg.socialV2?.tools?.sendFile !== 
   );
 }
 
-if (cfg.socialV2?.tools?.getSelfImage !== false) {
-  server.tool(
-    'qq_get_self_image',
-    '查看你自己的默认 Q 版形象图片（DeepSeek 小鲸鱼形象）。当你被问“你长什么样/发张自拍/你是什么形象”时，可以调用这个工具看自己的样子；返回的图片会直接进入你的视觉上下文。',
-    {
-      key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
-      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）')
-    },
-    async ({ key, token }) => {
-      try {
-        const q = new URLSearchParams({ key });
-        const data = await agentApi(`/api/socialV2/self-image?${q.toString()}`, { headers: { 'x-agent-token': token } });
-        if (!data?.image?.data || !data?.image?.mimeType) {
-          return { content: [{ type: 'text', text: `没有可返回的形象图片：${errorText(data?.error, '未知')}` }], isError: true };
-        }
-        return {
-          content: [
-            { type: 'text', text: '这是你的默认 Q 版形象：' },
-            { type: 'image', mimeType: data.image.mimeType, data: data.image.data }
-          ]
-        };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `获取形象图片失败：${error?.message ?? error}` }], isError: true };
-      }
-    }
-  );
-}
 
 if (cfg.socialV2?.sticker?.enabled !== false && cfg.socialV2?.tools?.stickerNote !== false) {
   server.tool(

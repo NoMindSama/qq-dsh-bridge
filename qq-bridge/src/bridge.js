@@ -31,7 +31,7 @@ import { extractForwardIds, forwardIdFromData, sanitizeForwardId, formatForwardR
 import { resolvePriceTable } from './model-prices.js';
 import { createTokenLedger } from './token-ledger.js';
 import { createStore as createMemoryStore } from './memory-store.js';
-import { selectForInjection as selectFactsForInjection } from './memory-facts.js';
+import { selectForInjection as selectFactsForInjection, addFact, loadFacts, weightOf, archiveFact, TAG_WEIGHTS, factsFileOf } from './memory-facts.js';
 import { createRecall } from './memory-search.js';
 import { createArtifactStore } from './artifact-store.js';
 import {
@@ -818,6 +818,7 @@ function loadConfig() {
         setWakeConfig: true,
         markRead: true,
         memory: true,
+        fact: true,
         getImages: true,
         getForwardMsg: true,
         sendPoke: true,
@@ -827,7 +828,6 @@ function loadConfig() {
         setStickerRemark: false,
         stickerNote: true,
         collectSticker: true,
-        getSelfImage: true
       },
       wake: {
         defaultMode: 'diving',
@@ -960,6 +960,7 @@ function loadConfig() {
     setWakeConfig: true,
     markRead: true,
     memory: true,
+    fact: true,
     slangQuery: true,
     slangSubmit: true,
     getImages: true,
@@ -971,7 +972,6 @@ function loadConfig() {
     setStickerRemark: false,
     stickerNote: true,
     collectSticker: true,
-    getSelfImage: true,
     sendVoice: false,
     // 发文件（qq_send_file）：只对 Owner 档（private:<ownerQQ>）生效，路由里有独立档位闸门；
     // 这里的开关是"要不要给管理员用这个工具"，默认开。详细边界见 socialV2.files。
@@ -4763,7 +4763,7 @@ async function main() {
             merged.autoReplyCheckMs = Number.isFinite(n) ? Math.max(1000, Math.round(n)) : (current.autoReplyCheckMs ?? 30000);
           }
           // tools：只接受布尔开关
-          const toolFlags = ['getPrompt', 'getUnread', 'getRecent', 'socialState', 'sendGroup', 'sendPrivate', 'reply', 'sendBurst', 'sendMessage', 'waitMessages', 'feedback', 'getMyRecent', 'getMessageDetail', 'getActiveMembers', 'setWakeConfig', 'markRead', 'memory', 'slangQuery', 'slangSubmit', 'getImages', 'getForwardMsg', 'sendPoke', 'listStickers', 'getStickerImage', 'sendSticker', 'setStickerRemark', 'stickerNote', 'collectSticker', 'getSelfImage', 'sendVoice', 'sendFile'];
+          const toolFlags = ['getPrompt', 'getUnread', 'getRecent', 'socialState', 'sendGroup', 'sendPrivate', 'reply', 'sendBurst', 'sendMessage', 'waitMessages', 'feedback', 'getMyRecent', 'getMessageDetail', 'getActiveMembers', 'setWakeConfig', 'markRead', 'memory', 'slangQuery', 'slangSubmit', 'getImages', 'getForwardMsg', 'sendPoke', 'listStickers', 'getStickerImage', 'sendSticker', 'setStickerRemark', 'stickerNote', 'collectSticker', 'fact', 'sendVoice', 'sendFile'];
           if (body.tools && typeof body.tools === 'object') {
             merged.tools = { ...(current.tools ?? {}), ...body.tools };
             for (const k of toolFlags) {
@@ -5031,6 +5031,7 @@ async function main() {
             setWakeConfig: 'qq_set_wake_config',
             markRead: 'qq_mark_read',
             memory: 'qq_memory_append / qq_memory_query / qq_memory_remove / qq_memory_clear',
+            fact: 'qq_fact_add（长期事实，每轮注入）',
             slangQuery: 'qq_slang_query',
             slangSubmit: 'qq_slang_submit',
             getImages: 'qq_get_message_images',
@@ -5042,7 +5043,6 @@ async function main() {
             setStickerRemark: 'qq_set_sticker_remark',
             stickerNote: 'qq_sticker_note',
             collectSticker: 'qq_collect_sticker',
-            getSelfImage: 'qq_get_self_image',
             sendVoice: 'qq_send_voice / qq_list_voices',
             // 发文件：只有 Owner 档（管理员私聊）真能调通，见 /api/socialV2/send-file 的档位闸门。
             sendFile: 'qq_send_file（仅管理员私聊）'
@@ -6107,23 +6107,6 @@ async function main() {
             });
           } catch (error) {
             sendJson({ ok: false, error: `获取表情图片失败：${error?.message ?? error}` }, 500);
-          }
-          return;
-        }
-        if (req.method === 'GET' && url.pathname === '/api/socialV2/self-image') {
-          const key = String(url.searchParams.get('key') ?? '').trim();
-          if (!key) { sendJson({ ok: false, error: 'key 不能为空' }, 400); return; }
-          if (req.headers['x-agent-token'] && !agentTokenOk(key, req.headers['x-agent-token'])) { sendJson({ ok: false, error: 'agent token 无效' }, 403); return; }
-          if (req.headers['x-agent-token'] && !v2SessionAllowed(key)) { sendJson({ ok: false, error: '目标不在当前模式允许范围内' }, 403); return; }
-          if (req.headers['x-agent-token'] && !v2ToolEnabled('getSelfImage')) { sendJson({ ok: false, error: '工具未启用：qq_get_self_image' }, 403); return; }
-          const selfPath = path.join(ROOT, 'assets', 'deepseek娘.png');
-          try {
-            if (!fs.existsSync(selfPath)) { sendJson({ ok: false, error: '未找到 AI 形象图片 assets/deepseek娘.png' }, 404); return; }
-            const buf = fs.readFileSync(selfPath);
-            const mimeType = mimeFromBuffer(buf) || 'image/png';
-            sendJson({ ok: true, key, image: { mimeType, data: buf.toString('base64') } });
-          } catch (error) {
-            sendJson({ ok: false, error: `读取 AI 形象图片失败：${error?.message ?? error}` }, 500);
           }
           return;
         }
@@ -7368,6 +7351,216 @@ async function main() {
           } catch (error) {
             log(`群成员查询失败 ${key}: ${error?.message ?? error}`);
             sendJson({ ok: false, error: `获取群成员失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        // 群友印象查询：给控制台面板用。只读，按最近互动时间降序。
+        // 不传 key 时返回所有会话；面板默认只看群聊。
+        if (req.method === 'GET' && url.pathname === '/api/socialV2/impressions') {
+          const wantKey = String(url.searchParams.get('key') ?? '').trim();
+          try {
+            const keys = wantKey ? [wantKey] : [...socialV2.conversations.keys()].filter(Boolean);
+            const out = [];
+            for (const k of keys) {
+              const st = socialV2.conversations.get(k);
+              const mi = st?.memberImpressions;
+              if (!mi || typeof mi !== 'object') continue;
+              for (const [name, im] of Object.entries(mi)) {
+                if (!im || typeof im !== 'object') continue;
+                const traits = Array.isArray(im.traits) ? im.traits.filter(Boolean) : [];
+                if (!traits.length) continue;
+                out.push({
+                  key: k,
+                  name,
+                  traits,
+                  interactionCount: Number(im.interactionCount) || 0,
+                  lastSeenAt: Number(im.lastSeenAt) || 0,
+                });
+              }
+            }
+            out.sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
+            sendJson({ ok: true, key: wantKey || null, total: out.length, impressions: out });
+          } catch (error) {
+            sendJson({ ok: false, error: `读取群友印象失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        // 群友印象编辑：按 (key, name, traitIndex) 精确定位。
+        // 面板的「编辑」用。traitIndex 是 traits 数组下标；传 -1 表示改动整个 traits 数组。
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/impression-update') {
+          const body = await readBody();
+          const key = String(body.key ?? '').trim();
+          const name = String(body.name ?? '').trim();
+          if (!key || !name) { sendJson({ ok: false, error: 'key/name 不能为空' }, 400); return; }
+          if (['__proto__', 'constructor', 'prototype'].includes(name)) { sendJson({ ok: false, error: '非法的群友名字' }, 400); return; }
+          try {
+            const st = getSocialV2State(key);
+            const im = st.memberImpressions?.[name];
+            if (!im || typeof im !== 'object') { sendJson({ ok: false, error: '没有这条印象' }, 404); return; }
+            const traits = Array.isArray(im.traits) ? im.traits.slice() : [];
+
+            // 改名（可选）
+            const newName = body.newName !== undefined ? String(body.newName).trim() : '';
+            if (newName && newName !== name) {
+              if (['__proto__', 'constructor', 'prototype'].includes(newName)) { sendJson({ ok: false, error: '非法的群友名字' }, 400); return; }
+              if (Object.prototype.hasOwnProperty.call(st.memberImpressions, newName)) { sendJson({ ok: false, error: '该名字已存在' }, 409); return; }
+            }
+
+            // 改某一条 trait
+            if (body.traitIndex !== undefined && body.traitIndex !== null) {
+              const idx = Number(body.traitIndex);
+              const text = String(body.text ?? '').trim();
+              if (!Number.isInteger(idx) || idx < 0) { sendJson({ ok: false, error: 'traitIndex 非法' }, 400); return; }
+              if (idx >= traits.length) { sendJson({ ok: false, error: 'traitIndex 越界' }, 400); return; }
+              if (!text) { sendJson({ ok: false, error: 'text 不能为空' }, 400); return; }
+              traits[idx] = text.slice(0, 50);   // 与 appendMemoryV2 的单条上限一致
+            } else if (Array.isArray(body.traits)) {
+              // 整组替换
+              const next = body.traits.map((t) => String(t ?? '').trim()).filter(Boolean).slice(0, 10);
+              if (!next.length) { sendJson({ ok: false, error: 'traits 不能全空' }, 400); return; }
+              traits.length = 0;
+              for (const t of next) traits.push(t.slice(0, 50));
+            }
+
+            st.memberImpressions[name] = {
+              traits,
+              interactionCount: Number(im.interactionCount) || 0,
+              lastSeenAt: Number(im.lastSeenAt) || Date.now(),
+            };
+            if (newName && newName !== name) {
+              st.memberImpressions[newName] = st.memberImpressions[name];
+              delete st.memberImpressions[name];
+            }
+            saveSocialV2State();
+            sendJson({ ok: true, key, name: newName || name });
+          } catch (error) {
+            sendJson({ ok: false, error: `编辑失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        // 群友印象删除：整人删掉（delete 该 key）。面板的删除按钮用。
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/impression-remove') {
+          const body = await readBody();
+          const key = String(body.key ?? '').trim();
+          const name = String(body.name ?? '').trim();
+          if (!key || !name) { sendJson({ ok: false, error: 'key/name 不能为空' }, 400); return; }
+          try {
+            const st = getSocialV2State(key);
+            if (!st.memberImpressions || !Object.prototype.hasOwnProperty.call(st.memberImpressions, name)) {
+              sendJson({ ok: false, error: '没有这条印象' }, 404);
+              return;
+            }
+            delete st.memberImpressions[name];
+            saveSocialV2State();
+            sendJson({ ok: true, key, name });
+          } catch (error) {
+            sendJson({ ok: false, error: `删除失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        // 长期事实（L2）查询：给控制台面板用。只读，按权重降序返回。
+        // 不传 key 时返回所有会话的事实（面板要跨会话展示）。
+        if (req.method === 'GET' && url.pathname === '/api/socialV2/facts') {
+          const wantKey = String(url.searchParams.get('key') ?? '').trim();
+          try {
+            const now = Date.now();
+            const keys = wantKey
+              ? [wantKey]
+              : [...socialV2.conversations.keys()].filter(Boolean);
+            const out = [];
+            for (const k of keys) {
+              const all = loadFacts(STATE_DIR, k);
+              // loadFacts 返回 append-only 的全部行（同一 id 可能有多条修订），先按 id 折叠取最新。
+              const latest = new Map();
+              for (const f of all) if (f && f.id) latest.set(f.id, f);
+              for (const f of latest.values()) {
+                if (!f || !f.text) continue;
+                out.push({
+                  key: k,
+                  id: f.id,
+                  text: f.text,
+                  tag: f.tag || 'misc',
+                  weight: Number(weightOf(f, now).toFixed(2)),
+                  hits: Number(f.hits) || 0,
+                  archived: !!f.archived,
+                  lastHit: f.lastHit || 0,
+                  createdAt: f.createdAt || 0,
+                  source: f.source || 'manual',
+                });
+              }
+            }
+            out.sort((a, b) => b.weight - a.weight || (b.lastHit || 0) - (a.lastHit || 0));
+            sendJson({ ok: true, key: wantKey || null, total: out.length, facts: out });
+          } catch (error) {
+            sendJson({ ok: false, error: `读取长期事实失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        // 长期事实编辑：按 id 精确改 text / tag。
+        // facts 是 append-only 文件，这里走「追加一条修订记录」而不是原地改
+        // （与 bumpFact / archiveFact 同一手法，读取时同 id 以最后一条为准）。
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/fact-update') {
+          const body = await readBody();
+          const key = String(body.key ?? '').trim();
+          const id = String(body.id ?? '').trim();
+          if (!key || !id) { sendJson({ ok: false, error: 'key/id 不能为空' }, 400); return; }
+          try {
+            const now = Date.now();
+            const all = loadFacts(STATE_DIR, key);
+            const target = all.filter((f) => f && f.id === id).pop();
+            if (!target) { sendJson({ ok: false, error: '没有找到这条事实' }, 404); return; }
+            const next = { ...target, revisedAt: now };
+            if (body.text !== undefined) {
+              const text = String(body.text).trim().slice(0, 200);
+              if (!text) { sendJson({ ok: false, error: 'text 不能为空' }, 400); return; }
+              next.text = text;
+            }
+            if (body.tag !== undefined) {
+              const tag = String(body.tag).trim();
+              // tag 决定基础权重：换 tag 就要重算 baseWeight，否则权重和分类对不上。
+              if (TAG_WEIGHTS[tag]) {
+                next.tag = tag;
+                next.baseWeight = TAG_WEIGHTS[tag];
+              }
+            }
+            const file = factsFileOf(STATE_DIR, key);
+            fs.appendFileSync(file, JSON.stringify(next) + '\n', 'utf8');
+            sendJson({ ok: true, key, fact: next });
+          } catch (error) {
+            sendJson({ ok: false, error: `编辑失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        // 长期事实删除：按 id 归档（不物理删，保留记录）。控制台面板的删除按钮用。
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/fact-remove') {
+          const body = await readBody();
+          const key = String(body.key ?? '').trim();
+          const id = String(body.id ?? '').trim();
+          if (!key || !id) { sendJson({ ok: false, error: 'key/id 不能为空' }, 400); return; }
+          try {
+            const hit = archiveFact(STATE_DIR, key, id);
+            if (!hit) { sendJson({ ok: false, error: '没有找到这条事实' }, 404); return; }
+            sendJson({ ok: true, key, id });
+          } catch (error) {
+            sendJson({ ok: false, error: `删除失败：${error?.message ?? error}` }, 500);
+          }
+          return;
+        }
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/fact-add') {
+          const body = await readBody();
+          const key = String(body.key ?? '').trim();
+          const text = String(body.text ?? '').trim();
+          const tag = String(body.tag ?? 'misc').trim();
+          if (!key || !text) { sendJson({ ok: false, error: 'key/text 不能为空' }, 400); return; }
+          if (req.headers['x-agent-token'] && !agentTokenOk(key, req.headers['x-agent-token'])) { sendJson({ ok: false, error: 'agent token 无效' }, 403); return; }
+          if (req.headers['x-agent-token'] && !v2SessionAllowed(key)) { sendJson({ ok: false, error: '目标不在当前模式允许范围内' }, 403); return; }
+          if (req.headers['x-agent-token'] && !v2ToolEnabled('fact')) { sendJson({ ok: false, error: '工具未启用：qq_fact_add' }, 403); return; }
+          try {
+            // addFact 内部按 text 完全相等去重：同一条再写一次只会加权，不会多存一份。
+            const fact = addFact(STATE_DIR, key, { text, tag, source: 'ai' });
+            sendJson({ ok: true, key, fact, preview: selectFactsForInjection(STATE_DIR, key).text });
+          } catch (error) {
+            sendJson({ ok: false, error: `长期事实写入失败：${error?.message ?? error}` }, 500);
           }
           return;
         }
@@ -11329,7 +11522,18 @@ async function main() {
     const initialPromptLine = initialPromptText ? `${initialPromptText}\n\n` : '';
     // 绝对时间也不再单独给一行【当前时间】：每条消息自带"多久前"，模型判断新鲜度
     // 够用；而绝对时间每轮都变，会挡住前缀缓存（那是延迟和成本的大头）。
-    const base = roleLine + identityLine + tokenLine + initialPromptLine + factsLine + recallHint;
+    //
+    // 加权提示（B 方案）：不额外起会话、不额外调模型，就在她本来这一轮里顺带判断。
+    // 只在 facts 非空时加 —— 空库时加这段纯属噪声。
+    // 用「原文照抄」而不是「第 N 条」：id/序号对模型是易失的，原文才稳定，
+    // 而且照抄后 addFact 的 text 完全相等去重能精确命中。
+    const bumpHint = factsLine
+      ? '【长期记忆·加权】如果这轮对话里有人提到了上面【长期记忆】中的某件事（同一件事换个说法也算），'
+        + '用 qq_fact_add 把那条事实原样再写一遍（text 和上面一字不差，tag 照旧）——'
+        + '重复写入只会给它加权，不会多存一条。语义相反的不算（那是需要修正的新情况）。'
+        + '没提到就不用管，不要为了加权硬凑。\n\n'
+      : '';
+    const base = roleLine + identityLine + tokenLine + initialPromptLine + factsLine + bumpHint + recallHint;
     // 各分支的"为什么叫醒你"都砍成一行：原文案（原因解释 + 行动要求 + 收尾提示）
     // 已经在 persona 和工具描述里，每轮再说一遍只是把历史撑长。
     if (reason === 'bootstrap') {
@@ -11584,24 +11788,55 @@ async function main() {
     const sessionId = state.sessions[key];
     if (!sessionId) return false;
     const memoryRoot = path.join(STATE_DIR, 'memory');
+    // 把已有的长期事实和自我认知喂进去，让她自己判断哪些已经记过。
+    // 不带 id：这一步只负责"别重复写"，加权是聊天时的即时比对在做。
+    const existingFacts = (() => {
+      try {
+        return loadFacts(STATE_DIR, key)
+          .filter((f) => f && !f.archived && f.text)
+          .slice(-40)
+          .map((f) => String(f.text));
+      } catch { return []; }
+    })();
+    const existingNotes = (() => {
+      try {
+        const st = getSocialV2State(key);
+        return (Array.isArray(st?.selfNotes) ? st.selfNotes : [])
+          .filter((n) => n && n.text).slice(-20).map((n) => String(n.text));
+      } catch { return []; }
+    })();
+    const factsBlock = existingFacts.length
+      ? `已有长期事实（这些已经记过了，同一件事不要再写一遍）：\n${existingFacts.map((t) => `- ${t}`).join('\n')}`
+      : '已有长期事实：（还是空的）';
+    const notesBlock = existingNotes.length
+      ? `已有自我认知（这些已经写过了，同一件事不要再写一遍）：\n${existingNotes.map((t) => `- ${t}`).join('\n')}`
+      : '已有自我认知：（还是空的）';
     const promptText = [
       '【后台任务 · 上下文压缩前的记忆整理】',
       '这段对话的历史马上会被压缩成一条摘要，原文细节会丢。趁现在把值得长期记住的东西写进记忆库。',
       '',
+      '一、长期事实',
       '写这些：',
       '· 用户提到的事实、偏好、习惯、约定；',
       '· 你们之间形成的默契、称呼、玩笑；',
       '· 还没做完、下次需要接着做的事。',
-      '用 qq_memory_append 写入（每条一句话，写结论不写流水账，不要复述整段对话）。',
+      '用 qq_fact_add 写入 facts 库（每条一句话，写结论不写流水账，不要复述整段对话）。',
+      'tag 按语义选：identity=身份关系 / agreement=约定 / emotion=强烈喜恶 / preference=偏好 / meme=梗 / misc=其他。',
       '',
-      '另外，如果有的话，也写一两句关于**你自己**的（category 用 selfNote）：',
+      factsBlock,
+      '',
+      '二、自我认知（用 qq_memory_append，category 用 selfNote）',
       '· 你对这个人的看法有没有变（他是什么样的人、你们是什么关系）；',
       '· 你自己有没有什么变了（说话习惯、脾气、以前怎么想现在怎么想）。',
       '这条只有你能写，别写成日记，想到一句写一句就够了。',
+      '',
+      notesBlock,
+      '',
+      '上面两块，凡是和已有内容讲同一件事的，直接跳过不写——不要换个说法再写一遍。',
       '没有值得记的就直接结束，不要凑数。',
       '',
       '记忆库在里面（压缩后这就是你找回细节的唯一入口）：',
-      `· 长期事实 ${path.join(memoryRoot, 'facts')} —— 写用 qq_memory_append，查用 qq_memory_query；`,
+      `· 长期事实 ${path.join(memoryRoot, 'facts')} —— 写用 qq_fact_add，它会每轮自动注入到你的提示里；`,
       `· 对话原文 ${path.join(memoryRoot, 'events')} —— 检索用 qq_recall(query=关键词)；`,
       `· 长文/文件产物 ${path.join(memoryRoot, 'artifacts')} —— 取用 qq_artifact_list / qq_artifact_get。`,
       '所以写的时候想清楚以后要怎么搜：关键词要具体，别写「聊了一些事」这种搜不回来的话。',

@@ -1,4 +1,4 @@
-<#
+﻿<#
   QQ 大肥鱼机器人 · 启动与后端管理
   ────────────────────────────────────────────────────────────────────────
   这是"发行层"的管理脚本，放在项目根目录的 tools/ 下，不侵入 qq-bridge 仓库。
@@ -62,11 +62,16 @@ function Write-Info($t) { Write-Host "    $t" -ForegroundColor DarkGray }
 
 function Get-DshPort {
   param([int]$ProcessId)
-  $c = Get-NetTCPConnection -State Listen -OwningProcess $ProcessId -ErrorAction SilentlyContinue |
+  # 桌面端一次会监听三个端口（web、web+1、web+2）。
+  # **只有 web 端口（最小的那个）接受桥接离线铸造的 Cookie**；另外两个是内部 API 口，
+  # 只认 Authorization: Bearer，桥接没有那个凭据。旧实现 Select-Object -First 1 是任意顺序，
+  # 经常取到内部口 ⇒ 401 ⇒ 事件流 0 帧 ⇒ dshReady=false。
+  $ports = @(Get-NetTCPConnection -State Listen -OwningProcess $ProcessId -ErrorAction SilentlyContinue |
        Where-Object { $_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '::1' } |
-       Select-Object -First 1
-  if ($c) { return [int]$c.LocalPort }
+       ForEach-Object { [int]$_.LocalPort } | Sort-Object -Unique)
+  if ($ports.Count -gt 0) { return $ports[0] }
   return $null
+
 }
 
 function Get-DshBackends {
